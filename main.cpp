@@ -554,7 +554,8 @@ float smoothStep(float edge0, float edge1, float x) {
 }
 
 float smoothDistance(float distance) {
-    return smoothStep(-1.0f, 1.0f, distance);
+    // return smoothStep(-1.0f, 1.0f, distance);
+    return smoothStep(-1.0f, 1.0f, distance) > 0.5 ? 1.0f : 0.0f;
 }
 
 uint32_t generatePixel(Shape& shape, const vec2& P) {
