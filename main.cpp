@@ -13,8 +13,8 @@ using namespace std;
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define IMAGE_WIDTH 16
-#define IMAGE_HEIGHT 16
+#define IMAGE_WIDTH 128
+#define IMAGE_HEIGHT 128
 uint32_t* pixels;
 
 double cross(const vec2& a, const vec2& b){
@@ -438,12 +438,12 @@ struct Contour {
     }
 };
 
-bool AreSame(double a, double b, double epsilon = 0.001)
+bool AreSame(double a, double b, double epsilon = 1e-10)
 {
     return fabs(a - b) < epsilon;
 }
 
-bool isCornerSharp(const Edge* a,const Edge* b, double epsilon=PI/10){
+bool isCornerSharp(const Edge* a,const Edge* b, double epsilon=PI/20){
     return !(abs(
         cross(
             a->derivative(1)/abs(a->derivative(1).mag()),
@@ -475,7 +475,7 @@ struct Shape {
                 float o = edge.orthogonality(P);
 
                 // If the current edge is closer, or equally close but more orthogonal
-                if (fabs(d) < fabs(dMin) || (AreSame(fabs(d), fabs(dMin),0.000001) && o > oMin)) {
+                if (fabs(d) < fabs(dMin) || (AreSame(fabs(d), fabs(dMin)) && o > oMin)) {
                     eMin = &edge;
                     dMin = d;
                     oMin = o;
@@ -579,30 +579,30 @@ int main() {
 
     // random shape
 
-    vec2 Offsetter = {0.01f,0.5f};
-    vec2 a  = { Offsetter.x+0.00f,Offsetter.y+0.0f};
-    vec2 aI = { Offsetter.x+0.20f,Offsetter.y+0.0f};
-    vec2 b  = { Offsetter.x+0.40f,Offsetter.y+0.2f};
-    vec2 bI = { Offsetter.x+0.60f,Offsetter.y+0.4f};
-    vec2 c  = {-Offsetter.x+1.00f,Offsetter.y+0.3f};
-    vec2 cI = { Offsetter.x+0.70f,Offsetter.y+0.26f};
-    vec2 d  = { Offsetter.x+0.75f,Offsetter.y+0.05f};
-    vec2 dI = { Offsetter.x+0.80f,Offsetter.y+-0.16f};
-    vec2 e  = {-Offsetter.x+1.00f,Offsetter.y+-0.1f};
-    vec2 eI = { Offsetter.x+0.80f,Offsetter.y+-0.25f};
-    vec2 f =  { Offsetter.x+0.50f,Offsetter.y+-0.3f};
-    vec2 fI = { Offsetter.x+0.20f,Offsetter.y+-0.3f};
+    // vec2 Offsetter = {0.01f,0.5f};
+    // vec2 a  = { Offsetter.x+0.00f,Offsetter.y+0.0f};
+    // vec2 aI = { Offsetter.x+0.20f,Offsetter.y+0.0f};
+    // vec2 b  = { Offsetter.x+0.40f,Offsetter.y+0.2f};
+    // vec2 bI = { Offsetter.x+0.60f,Offsetter.y+0.4f};
+    // vec2 c  = {-Offsetter.x+1.00f,Offsetter.y+0.3f};
+    // vec2 cI = { Offsetter.x+0.70f,Offsetter.y+0.26f};
+    // vec2 d  = { Offsetter.x+0.75f,Offsetter.y+0.05f};
+    // vec2 dI = { Offsetter.x+0.80f,Offsetter.y+-0.16f};
+    // vec2 e  = {-Offsetter.x+1.00f,Offsetter.y+-0.1f};
+    // vec2 eI = { Offsetter.x+0.80f,Offsetter.y+-0.25f};
+    // vec2 f =  { Offsetter.x+0.50f,Offsetter.y+-0.3f};
+    // vec2 fI = { Offsetter.x+0.20f,Offsetter.y+-0.3f};
 
     // AAAAAAAAAA
 
-    // vec2 p1 = {0.1,0.1};
-    // vec2 p2 = {0.3,0.9};
-    // vec2 p3 = {0.7,0.9};
-    // vec2 p4 = {0.9,0.1};
-    // vec2 p5 = {0.7,0.1};
-    // vec2 p6 = {0.6,0.4};
-    // vec2 p7 = {0.4,0.4};
-    // vec2 p8 = {0.3,0.1};
+    vec2 p1 = {0.1,0.1};
+    vec2 p2 = {0.3,0.9};
+    vec2 p3 = {0.7,0.9};
+    vec2 p4 = {0.9,0.1};
+    vec2 p5 = {0.7,0.1};
+    vec2 p6 = {0.6,0.4};
+    vec2 p7 = {0.4,0.4};
+    vec2 p8 = {0.3,0.1};
 
     // EEEEEEEEE
 
@@ -625,79 +625,79 @@ int main() {
 
                     // random shape
 
-                    Edge(EdgeBezier{
-                        a,
-                        b,
-                        aI
-                    }),
-                    Edge(EdgeBezier{
-                        b,
-                        c,
-                        bI
-                    }),
-                    Edge(EdgeBezier{
-                        c,
-                        d,
-                        cI
-                    }),
-                    Edge(EdgeBezier{
-                        d,
-                        e,
-                        dI
-                    }),
-                    Edge(EdgeBezier{
-                        e,
-                        f,
-                        eI
-                    }),
-                    Edge(EdgeBezier{
-                        f,
-                        a,
-                        fI
-                    }),
+                    // Edge(EdgeBezier{
+                    //     a,
+                    //     b,
+                    //     aI
+                    // }),
+                    // Edge(EdgeBezier{
+                    //     b,
+                    //     c,
+                    //     bI
+                    // }),
+                    // Edge(EdgeBezier{
+                    //     c,
+                    //     d,
+                    //     cI
+                    // }),
+                    // Edge(EdgeBezier{
+                    //     d,
+                    //     e,
+                    //     dI
+                    // }),
+                    // Edge(EdgeBezier{
+                    //     e,
+                    //     f,
+                    //     eI
+                    // }),
+                    // Edge(EdgeBezier{
+                    //     f,
+                    //     a,
+                    //     fI
+                    // }),
 
                     // AAAAAAAAAAA
 
-                    // Edge(EdgeLine{
-                    //         p1,
-                    //         p2
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p2,
-                    //         p3
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p3,
-                    //         p4
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p4,
-                    //         p5
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p5,
-                    //         p6
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p6,
-                    //         p7
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p7,
-                    //         p8
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p8,
-                    //         p1
-                    //     }
-                    // ),
+                    Edge(EdgeLine{
+                            p1,
+                            p2
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p2,
+                            p3
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p3,
+                            p4
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p4,
+                            p5
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p5,
+                            p6
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p6,
+                            p7
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p7,
+                            p8
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p8,
+                            p1
+                        }
+                    ),
 
                     // EEEEEEEEEEEE
                     // Edge(EdgeBezier{
