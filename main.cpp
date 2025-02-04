@@ -430,6 +430,7 @@ uint32_t Edge::global_id = 0;
 
 struct Contour {
     vector<Edge> edges;
+    bool isClockwise;
 
     void draw(uint32_t color, int thickness) {
         for (auto& edge : edges) {
@@ -475,7 +476,7 @@ struct Shape {
                 float o = edge.orthogonality(P);
 
                 // If the current edge is closer, or equally close but more orthogonal
-                if (fabs(d) < fabs(dMin) || (AreSame(fabs(d), fabs(dMin)) && o > oMin)) {
+                if (fabs(d) < fabs(dMin) || (AreSame(fabs(d), fabs(dMin)) && (contour.isClockwise ? o > oMin : o < oMin))) {
                     eMin = &edge;
                     dMin = d;
                     oMin = o;
@@ -574,6 +575,17 @@ uint32_t generatePixel(Shape& shape, const vec2& P) {
     return rgb(dR, dG, dB, 1.0f);
 }
 
+bool isContourClockwise(const Contour& contour) {
+    double area = 0.0;
+    for (size_t i = 0; i < contour.edges.size(); ++i) {
+        const Edge& edge = contour.edges[i];
+        vec2 p1 = edge.point(0.0);
+        vec2 p2 = edge.point(1.0);
+        area += (p2.x - p1.x) * (p2.y + p1.y);
+    }
+    return area > 0.0; // If area is positive, the contour is clockwise
+}
+
 int main() {
     pixels = (uint32_t*)malloc(IMAGE_WIDTH * IMAGE_HEIGHT * 4);
 
@@ -617,6 +629,11 @@ int main() {
     // vec2 p9 = {0.8,0.15};
     // vec2 p10 = {0.1,0.05};
 
+    // reverse triangle
+    vec2 tp1 = {0.1,0.1};
+    vec2 tp2 = {0.9,0.1};
+    vec2 tp3 = {0.5,0.9};
+
 
     Shape test{
         {
@@ -658,44 +675,123 @@ int main() {
 
                     // AAAAAAAAAAA
 
+                    // Edge(EdgeLine{
+                    //         p1,
+                    //         p2
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p2,
+                    //         p3
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p3,
+                    //         p4
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p4,
+                    //         p5
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p5,
+                    //         p6
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p6,
+                    //         p7
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p7,
+                    //         p8
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p8,
+                    //         p1
+                    //     }
+                    // ),
+
+                    // AAAAAAAAAAAAA - reverse winding
+
+                    // Edge(EdgeLine{
+                    //         p1,
+                    //         p8
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p8,
+                    //         p7
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p7,
+                    //         p6
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p6,
+                    //         p5
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p5,
+                    //         p4
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p4,
+                    //         p3
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p3,
+                    //         p2
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p2,
+                    //         p1
+                    //     }
+                    // ),
+
+                    // triangle
+
+                    // Edge(EdgeLine{
+                    //         tp1,
+                    //         tp3
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         tp3,
+                    //         tp2
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         tp2,
+                    //         tp1
+                    //     }
+                    // ),
+
+                    // triangle reversed
+
                     Edge(EdgeLine{
-                            p1,
-                            p2
+                            tp1,
+                            tp2
                         }
                     ),
                     Edge(EdgeLine{
-                            p2,
-                            p3
+                            tp2,
+                            tp3
                         }
                     ),
                     Edge(EdgeLine{
-                            p3,
-                            p4
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p4,
-                            p5
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p5,
-                            p6
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p6,
-                            p7
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p7,
-                            p8
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p8,
-                            p1
+                            tp3,
+                            tp1
                         }
                     ),
 
@@ -735,6 +831,10 @@ int main() {
         }
     };
 
+
+    for (auto& contour : test.contours) {
+        contour.isClockwise = isContourClockwise(contour);
+    }
 
     test.edgeColoring();
 
