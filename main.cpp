@@ -555,8 +555,8 @@ float smoothStep(float edge0, float edge1, float x) {
 }
 
 float smoothDistance(float distance) {
-    // return smoothStep(-1.0f, 1.0f, distance);
-    return smoothStep(-1.0f, 1.0f, distance) > 0.5 ? 1.0f : 0.0f;
+    return smoothStep(-1.0f, 1.0f, distance);
+    // return smoothStep(-1.0f, 1.0f, distance) > 0.5 ? 1.0f : 0.0f;
 }
 
 uint32_t generatePixel(Shape& shape, const vec2& P) {
@@ -630,9 +630,9 @@ int main() {
     // vec2 p10 = {0.1,0.05};
 
     // reverse triangle
-    vec2 tp1 = {0.1,0.1};
-    vec2 tp2 = {0.9,0.1};
-    vec2 tp3 = {0.5,0.9};
+    vec2 tp1 = {0.3,0.5};
+    vec2 tp2 = {0.7,0.5};
+    vec2 tp3 = {0.5,0.85};
 
 
     Shape test{
@@ -674,50 +674,48 @@ int main() {
                     // }),
 
                     // AAAAAAAAAAA
-
-                    // Edge(EdgeLine{
-                    //         p1,
-                    //         p2
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p2,
-                    //         p3
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p3,
-                    //         p4
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p4,
-                    //         p5
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p5,
-                    //         p6
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p6,
-                    //         p7
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p7,
-                    //         p8
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         p8,
-                    //         p1
-                    //     }
-                    // ),
+                    Edge(EdgeLine{
+                            p1,
+                            p2
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p2,
+                            p3
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p3,
+                            p4
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p4,
+                            p5
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p5,
+                            p6
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p6,
+                            p7
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p7,
+                            p8
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            p8,
+                            p1
+                        }
+                    ),
 
                     // AAAAAAAAAAAAA - reverse winding
-
                     // Edge(EdgeLine{
                     //         p1,
                     //         p8
@@ -758,42 +756,6 @@ int main() {
                     //         p1
                     //     }
                     // ),
-
-                    // triangle
-
-                    // Edge(EdgeLine{
-                    //         tp1,
-                    //         tp3
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         tp3,
-                    //         tp2
-                    //     }
-                    // ),
-                    // Edge(EdgeLine{
-                    //         tp2,
-                    //         tp1
-                    //     }
-                    // ),
-
-                    // triangle reversed
-
-                    Edge(EdgeLine{
-                            tp1,
-                            tp2
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            tp2,
-                            tp3
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            tp3,
-                            tp1
-                        }
-                    ),
 
                     // EEEEEEEEEEEE
                     // Edge(EdgeBezier{
@@ -826,6 +788,44 @@ int main() {
                     //     p9,
                     //     p8
                     // }),
+                }
+            },
+
+            Contour{
+                {
+                    // triangle
+                    // Edge(EdgeLine{
+                    //         tp1,
+                    //         tp3
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         tp3,
+                    //         tp2
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         tp2,
+                    //         tp1
+                    //     }
+                    // ),
+
+                    // triangle reversed
+                    Edge(EdgeLine{
+                            tp1,
+                            tp2
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            tp2,
+                            tp3
+                        }
+                    ),
+                    Edge(EdgeLine{
+                            tp3,
+                            tp1
+                        }
+                    ),
                 }
             }
         }
