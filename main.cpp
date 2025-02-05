@@ -588,31 +588,27 @@ float median(float a, float b, float c) {
 }
 
 void collisionCorrection(uint32_t* pixels, int width, int height) {
-    const float threshold = 1.0f;
+    const float threshold = 0.99f;
 
     for (int y = 1; y < height - 1; ++y) {
         for (int x = 1; x < width - 1; ++x) {
             int index = y * width + x;
 
-            float dR = smoothDistance(extractChannel(pixels[index], 0) / 255.0f * 2.0f - 1.0f);
-            float dG = smoothDistance(extractChannel(pixels[index], 8) / 255.0f * 2.0f - 1.0f);
-            float dB = smoothDistance(extractChannel(pixels[index], 16) / 255.0f * 2.0f - 1.0f);
-
-            float dR_left = smoothDistance(extractChannel(pixels[index - 1], 0) / 255.0f * 2.0f - 1.0f);
-            float dG_left = smoothDistance(extractChannel(pixels[index - 1], 8) / 255.0f * 2.0f - 1.0f);
-            float dB_left = smoothDistance(extractChannel(pixels[index - 1], 16) / 255.0f * 2.0f - 1.0f);
-
-            float dR_right = smoothDistance(extractChannel(pixels[index + 1], 0) / 255.0f * 2.0f - 1.0f);
-            float dG_right = smoothDistance(extractChannel(pixels[index + 1], 8) / 255.0f * 2.0f - 1.0f);
-            float dB_right = smoothDistance(extractChannel(pixels[index + 1], 16) / 255.0f * 2.0f - 1.0f);
-
-            float dR_top = smoothDistance(extractChannel(pixels[index - width], 0) / 255.0f * 2.0f - 1.0f);
-            float dG_top = smoothDistance(extractChannel(pixels[index - width], 8) / 255.0f * 2.0f - 1.0f);
-            float dB_top = smoothDistance(extractChannel(pixels[index - width], 16) / 255.0f * 2.0f - 1.0f);
-
-            float dR_bottom = smoothDistance(extractChannel(pixels[index + width], 0) / 255.0f * 2.0f - 1.0f);
-            float dG_bottom = smoothDistance(extractChannel(pixels[index + width], 8) / 255.0f * 2.0f - 1.0f);
-            float dB_bottom = smoothDistance(extractChannel(pixels[index + width], 16) / 255.0f * 2.0f - 1.0f);
+            float dR = extractChannel(pixels[index], 0) / 255.0f;
+            float dG = extractChannel(pixels[index], 8) / 255.0f;
+            float dB = extractChannel(pixels[index], 16) / 255.0f;
+            float dR_left = extractChannel(pixels[index - 1], 0) / 255.0f;
+            float dG_left = extractChannel(pixels[index - 1], 8) / 255.0f;
+            float dB_left = extractChannel(pixels[index - 1], 16) / 255.0f;
+            float dR_right = extractChannel(pixels[index + 1], 0) / 255.0f;
+            float dG_right = extractChannel(pixels[index + 1], 8) / 255.0f;
+            float dB_right = extractChannel(pixels[index + 1], 16) / 255.0f;
+            float dR_top = extractChannel(pixels[index - width], 0) / 255.0f;
+            float dG_top = extractChannel(pixels[index - width], 8) / 255.0f;
+            float dB_top = extractChannel(pixels[index - width], 16) / 255.0f;
+            float dR_bottom = extractChannel(pixels[index + width], 0) / 255.0f;
+            float dG_bottom = extractChannel(pixels[index + width], 8) / 255.0f;
+            float dB_bottom = extractChannel(pixels[index + width], 16) / 255.0f;
 
             bool collisionR = (fabs(dR - dR_left) > threshold) || (fabs(dR - dR_right) > threshold) ||
                               (fabs(dR - dR_top) > threshold) || (fabs(dR - dR_bottom) > threshold);
