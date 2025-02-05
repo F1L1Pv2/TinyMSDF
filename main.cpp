@@ -206,118 +206,116 @@ struct EdgeLine {
     }
 };
 
+bool AreSame(double a, double b, double epsilon = 1e-10)
+{
+    return fabs(a - b) < epsilon;
+}
+
 struct EdgeBezier {
     vec2 start;
     vec2 end;
     vec2 control;
 
-    vec2 point(double t) const{
-        return start + (control - start) * (2 * t) + (end - control * 2 + start) * (t * t);
+    // A quadratic Bezier using the standard formulation:
+    // B(t) = (1-t)^2*start + 2t(1-t)*control + t^2*end
+    vec2 point(double t) const {
+        double omt = 1.0 - t;
+        return start * (omt * omt) + control * (2 * t * omt) + end * (t * t);
     }
 
-    vec2 derivative(double t)const{
-        return (end - control * 2  + start) * (2*t) + (control - start) * 2;
+    // Its derivative:
+    // B'(t) = 2(1-t)(control - start) + 2t(end - control)
+    vec2 derivative(double t) const {
+        return (control - start) * (2.0 * (1.0 - t)) + (end - control) * (2.0 * t);
     }
 
+    // Compute the unsigned distance from p to the curve by dense sampling.
     double distanceTo(const vec2& p) const {
         double minDistance = std::numeric_limits<double>::max();
-        for (int i = 0; i <= 100; ++i) {
-            double t = i / 100.0;
+        const int subdivisions = 100;
+        for (int i = 0; i <= subdivisions; ++i) {
+            double t = i / (double)subdivisions;
             vec2 curvePoint = point(t);
-            double distance = (p - curvePoint).mag();
-            if (distance < minDistance) {
-                minDistance = distance;
-            }
+            double d = (p - curvePoint).mag();
+            if (d < minDistance)
+                minDistance = d;
         }
         return minDistance;
     }
 
+    // Compute a measure of the signed orthogonality.
+    // We sample the curve densely, pick the closest point and then use its tangent.
     double orthogonality(const vec2& p) const {
+        if(
+            (AreSame(this->control.x,this->start.x) && (AreSame(this->control.y,this->start.y)))
+            ||
+            (AreSame(this->control.x,this->end.x) && (AreSame(this->control.y,this->end.y)))
+        ){
+            return EdgeLine{this->start,this->end}.orthogonality(p);
+        }
         double minDistance = std::numeric_limits<double>::max();
         double minT = 0.0;
-
-        // Use a binary search to find an approximate closest point
-        const int subdivisions = 20; // Adjust for precision vs performance
+        const int subdivisions = 100; // dense enough for a quadratic curve
         for (int i = 0; i <= subdivisions; ++i) {
             double t = i / (double)subdivisions;
             vec2 curvePoint = point(t);
-            double distance = (p - curvePoint).mag();
-            if (distance < minDistance) {
-                minDistance = distance;
+            double d = (p - curvePoint).mag();
+            if (d < minDistance) {
+                minDistance = d;
                 minT = t;
             }
         }
-
-        // Refine the closest point using a simple iterative method
-        const double epsilon = 1e-6;
-        for (int i = 0; i < 10; ++i) { // Limit iterations for safety
-            vec2 curvePoint = point(minT);
-            vec2 tangent = derivative(minT);
-            vec2 pointToCurve = p - curvePoint;
-
-            // Project the point-to-curve vector onto the tangent vector
-            double projection = pointToCurve.dot(tangent) / tangent.dot(tangent);
-
-            // Update t based on the projection
-            minT = minT + projection;
-
-            // Clamp t to the valid range [0, 1]
-            minT = std::max(0.0, std::min(1.0, minT));
-
-            // Check for convergence
-            if (fabs(projection) < epsilon) break;
-        }
-
         vec2 closestPoint = point(minT);
         vec2 tangent = derivative(minT);
-
-        // Handle degenerate tangent vectors
         double tangentMag = tangent.mag();
-        if (tangentMag < 1e-10) {
+        if (tangentMag < 1e-10)
             return 0.0;
-        }
-
-        vec2 normal = { -tangent.y, tangent.x }; // Perpendicular to tangent
-        normal.normalize();
-
-        vec2 pointToClosest = p - closestPoint;
-        double pointToClosestMag = pointToClosest.mag();
-        if (pointToClosestMag < 1e-10) {
-            return 0.0; // Point is exactly on the curve
-        }
-
-        // Return the signed cross product (direction matters)
-        return cross(tangent / tangentMag, pointToClosest / pointToClosestMag);
+        vec2 tangentNorm = tangent / tangentMag;
+        vec2 dir = p - closestPoint;
+        double dirMag = dir.mag();
+        if (dirMag < 1e-10)
+            return 0.0;
+        vec2 dirNorm = dir / dirMag;
+        // The signed cross product between the tangent and the direction
+        return cross(tangentNorm, dirNorm) * -1.0f;
     }
 
+    // Compute a signed distance:
+    // We sample many points, pick the closest one, then determine the sign using the normal.
     double signedDistanceTo(const vec2& p) const {
+        if(
+            (AreSame(this->control.x,this->start.x) && (AreSame(this->control.y,this->start.y)))
+            ||
+            (AreSame(this->control.x,this->end.x) && (AreSame(this->control.y,this->end.y)))
+        ){
+            return EdgeLine{this->start,this->end}.signedDistanceTo(p);
+        }
         double minDistance = std::numeric_limits<double>::max();
         double minT = 0.0;
-
-        // Use more subdivisions for better accuracy
-        const int subdivisions = 200;
+        const int subdivisions = 200; // use more subdivisions for signed distance accuracy
         for (int i = 0; i <= subdivisions; ++i) {
             double t = i / (double)subdivisions;
             vec2 curvePoint = point(t);
-            double distance = (p - curvePoint).mag();
-            if (distance < minDistance) {
-                minDistance = distance;
+            double d = (p - curvePoint).mag();
+            if (d < minDistance) {
+                minDistance = d;
                 minT = t;
             }
         }
-
-        // Calculate the signed distance
         vec2 closestPoint = point(minT);
         vec2 tangent = derivative(minT);
-        vec2 normal = { -tangent.y, tangent.x }; // Perpendicular to tangent
-        normal.normalize();
-
-        // Signed distance is positive if p is on the "left" side of the curve
-        double sign = cross(tangent, p - closestPoint) >= 0 ? -1.0 : 1.0;
-
-        return sign * minDistance;
+        double tangentMag = tangent.mag();
+        if (tangentMag < 1e-10)
+            return minDistance; // fallback if tangent is degenerate
+        vec2 tangentNorm = tangent / tangentMag;
+        // Compute a normal (by rotating the tangent 90° counter-clockwise)
+        vec2 normal = { -tangentNorm.y, tangentNorm.x };
+        // Determine sign: positive if the point lies along the normal direction, negative otherwise.
+        double sign = (p - closestPoint).dot(normal) >= 0 ? 1.0 : -1.0;
+        return sign * minDistance * -1.0f;
     }
 
+    // The draw method remains unchanged.
     void draw(uint32_t color, int thickness) {
         vec2 prev = start;
         for (int i = 1; i <= 100; i++) {
@@ -439,11 +437,6 @@ struct Contour {
         }
     }
 };
-
-bool AreSame(double a, double b, double epsilon = 1e-10)
-{
-    return fabs(a - b) < epsilon;
-}
 
 bool isCornerSharp(const Edge* a,const Edge* b, double epsilon=PI/10){
     return !(abs(
@@ -660,32 +653,37 @@ int main() {
 
     // AAAAAAAAAA
 
-    vec2 p1 = {0.1,0.1};
-    vec2 p2 = {0.3,0.9};
-    vec2 p3 = {0.7,0.9};
-    vec2 p4 = {0.9,0.1};
-    vec2 p5 = {0.7,0.1};
-    vec2 p6 = {0.6,0.4};
-    vec2 p7 = {0.4,0.4};
-    vec2 p8 = {0.3,0.1};
+    // vec2 p1 = {0.1,0.1};
+    // vec2 p2 = {0.3,0.9};
+    // vec2 p3 = {0.7,0.9};
+    // vec2 p4 = {0.9,0.1};
+    // vec2 p5 = {0.7,0.1};
+    // vec2 p6 = {0.6,0.4};
+    // vec2 p7 = {0.4,0.4};
+    // vec2 p8 = {0.3,0.1};
 
     // EEEEEEEEE
 
-    // vec2 p1 = {0.106,0.486};
-    // vec2 p2 = {0.1,0.9};
-    // vec2 p3 = {0.5,0.9};
-    // vec2 p4 = {0.8,0.9};
-    // vec2 p5 = {0.8,0.5};
-    // vec2 p6 = {0.3,0.5};
-    // vec2 p7 = {0.295,0.24};
-    // vec2 p8 = {0.8,0.3};
-    // vec2 p9 = {0.8,0.15};
-    // vec2 p10 = {0.1,0.05};
+    vec2 p1 = {0.106,0.486};
+    vec2 p2 = {0.1,0.9};
+    vec2 p3 = {0.5,0.9};
+    vec2 p4 = {0.8,0.9};
+    vec2 p5 = {0.8,0.5};
+    vec2 p6 = {0.3,0.5};
+    vec2 p7 = {0.295,0.24};
+    vec2 p8 = {0.8,0.3};
+    vec2 p9 = {0.8,0.15};
+    vec2 p10 = {0.1,0.05};
 
     // reverse triangle
-    vec2 tp1 = {0.3,0.5};
-    vec2 tp2 = {0.7,0.5};
-    vec2 tp3 = {0.5,0.85};
+    // vec2 tp1 = {0.3,0.5};
+    // vec2 tp2 = {0.7,0.5};
+    // vec2 tp3 = {0.5,0.85};
+
+    // reverse triangle-e
+    vec2 tp1 = {0.3,0.55};
+    vec2 tp2 = {0.7,0.55};
+    vec2 tp3 = {0.5,0.8};
 
 
     Shape test{
@@ -727,46 +725,46 @@ int main() {
                     // }),
 
                     // AAAAAAAAAAA
-                    Edge(EdgeLine{
-                            p1,
-                            p2
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p2,
-                            p3
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p3,
-                            p4
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p4,
-                            p5
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p5,
-                            p6
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p6,
-                            p7
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p7,
-                            p8
-                        }
-                    ),
-                    Edge(EdgeLine{
-                            p8,
-                            p1
-                        }
-                    ),
+                    // Edge(EdgeLine{
+                    //         p1,
+                    //         p2
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p2,
+                    //         p3
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p3,
+                    //         p4
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p4,
+                    //         p5
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p5,
+                    //         p6
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p6,
+                    //         p7
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p7,
+                    //         p8
+                    //     }
+                    // ),
+                    // Edge(EdgeLine{
+                    //         p8,
+                    //         p1
+                    //     }
+                    // ),
 
                     // AAAAAAAAAAAAA - reverse winding
                     // Edge(EdgeLine{
@@ -811,36 +809,36 @@ int main() {
                     // ),
 
                     // EEEEEEEEEEEE
-                    // Edge(EdgeBezier{
-                    //     p9,
-                    //     p1,
-                    //     p10
-                    // }),
-                    // Edge(EdgeBezier{
-                    //     p1,
-                    //     p3,
-                    //     p2
-                    // }),
-                    // Edge(EdgeBezier{
-                    //     p3,
-                    //     p5,
-                    //     p4
-                    // }),
-                    // Edge(EdgeBezier{
-                    //     p5,
-                    //     p6,
-                    //     p5
-                    // }),
-                    // Edge(EdgeBezier{
-                    //     p6,
-                    //     p8,
-                    //     p7
-                    // }),
-                    // Edge(EdgeBezier{
-                    //     p8,
-                    //     p9,
-                    //     p8
-                    // }),
+                    Edge(EdgeBezier{
+                        p9,
+                        p1,
+                        p10
+                    }),
+                    Edge(EdgeBezier{
+                        p1,
+                        p3,
+                        p2
+                    }),
+                    Edge(EdgeBezier{
+                        p3,
+                        p5,
+                        p4
+                    }),
+                    Edge(EdgeBezier{
+                        p5,
+                        p6,
+                        p5
+                    }),
+                    Edge(EdgeBezier{
+                        p6,
+                        p8,
+                        p7
+                    }),
+                    Edge(EdgeBezier{
+                        p8,
+                        p9,
+                        p8
+                    }),
                 }
             },
 
