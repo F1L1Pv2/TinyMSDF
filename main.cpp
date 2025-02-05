@@ -7,14 +7,15 @@
 #include <limits>
 #include "3dmath.h"
 #include <algorithm>
+#include <array>
 
 using namespace std;
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define IMAGE_WIDTH 128
-#define IMAGE_HEIGHT 128
+#define IMAGE_WIDTH 256
+#define IMAGE_HEIGHT 256
 uint32_t* pixels;
 
 double cross(const vec2& a, const vec2& b){
@@ -444,7 +445,7 @@ bool AreSame(double a, double b, double epsilon = 1e-10)
     return fabs(a - b) < epsilon;
 }
 
-bool isCornerSharp(const Edge* a,const Edge* b, double epsilon=PI/20){
+bool isCornerSharp(const Edge* a,const Edge* b, double epsilon=PI/10){
     return !(abs(
         cross(
             a->derivative(1)/abs(a->derivative(1).mag()),
@@ -555,8 +556,9 @@ float smoothStep(float edge0, float edge1, float x) {
 }
 
 float smoothDistance(float distance) {
-    return smoothStep(-1.0f, 1.0f, distance);
+    return smoothStep(-0.05f, 0.05f, distance);
     // return smoothStep(-1.0f, 1.0f, distance) > 0.5 ? 1.0f : 0.0f;
+    // return (distance+1)/2;
 }
 
 uint32_t generatePixel(Shape& shape, const vec2& P) {
@@ -584,6 +586,57 @@ bool isContourClockwise(const Contour& contour) {
         area += (p2.x - p1.x) * (p2.y + p1.y);
     }
     return area > 0.0; // If area is positive, the contour is clockwise
+}
+
+float median(float a, float b, float c) {
+    std::array<float, 3> values = {a, b, c};
+    std::sort(values.begin(), values.end());
+    return values[1];
+}
+
+void collisionCorrection(uint32_t* pixels, int width, int height) {
+    const float threshold = 1.0f;
+
+    for (int y = 1; y < height - 1; ++y) {
+        for (int x = 1; x < width - 1; ++x) {
+            int index = y * width + x;
+
+            float dR = smoothDistance(extractChannel(pixels[index], 0) / 255.0f * 2.0f - 1.0f);
+            float dG = smoothDistance(extractChannel(pixels[index], 8) / 255.0f * 2.0f - 1.0f);
+            float dB = smoothDistance(extractChannel(pixels[index], 16) / 255.0f * 2.0f - 1.0f);
+
+            float dR_left = smoothDistance(extractChannel(pixels[index - 1], 0) / 255.0f * 2.0f - 1.0f);
+            float dG_left = smoothDistance(extractChannel(pixels[index - 1], 8) / 255.0f * 2.0f - 1.0f);
+            float dB_left = smoothDistance(extractChannel(pixels[index - 1], 16) / 255.0f * 2.0f - 1.0f);
+
+            float dR_right = smoothDistance(extractChannel(pixels[index + 1], 0) / 255.0f * 2.0f - 1.0f);
+            float dG_right = smoothDistance(extractChannel(pixels[index + 1], 8) / 255.0f * 2.0f - 1.0f);
+            float dB_right = smoothDistance(extractChannel(pixels[index + 1], 16) / 255.0f * 2.0f - 1.0f);
+
+            float dR_top = smoothDistance(extractChannel(pixels[index - width], 0) / 255.0f * 2.0f - 1.0f);
+            float dG_top = smoothDistance(extractChannel(pixels[index - width], 8) / 255.0f * 2.0f - 1.0f);
+            float dB_top = smoothDistance(extractChannel(pixels[index - width], 16) / 255.0f * 2.0f - 1.0f);
+
+            float dR_bottom = smoothDistance(extractChannel(pixels[index + width], 0) / 255.0f * 2.0f - 1.0f);
+            float dG_bottom = smoothDistance(extractChannel(pixels[index + width], 8) / 255.0f * 2.0f - 1.0f);
+            float dB_bottom = smoothDistance(extractChannel(pixels[index + width], 16) / 255.0f * 2.0f - 1.0f);
+
+            bool collisionR = (fabs(dR - dR_left) > threshold) || (fabs(dR - dR_right) > threshold) ||
+                              (fabs(dR - dR_top) > threshold) || (fabs(dR - dR_bottom) > threshold);
+
+            bool collisionG = (fabs(dG - dG_left) > threshold) || (fabs(dG - dG_right) > threshold) ||
+                              (fabs(dG - dG_top) > threshold) || (fabs(dG - dG_bottom) > threshold);
+
+            bool collisionB = (fabs(dB - dB_left) > threshold) || (fabs(dB - dB_right) > threshold) ||
+                              (fabs(dB - dB_top) > threshold) || (fabs(dB - dB_bottom) > threshold);
+
+            if ((collisionR && collisionG) || (collisionR && collisionB) || (collisionG && collisionB)) {
+                float medianDistance = median(dR, dG, dB);
+                uint32_t correctedColor = rgb(medianDistance, medianDistance, medianDistance, 1.0f);
+                pixels[index] = correctedColor;
+            }
+        }
+    }
 }
 
 int main() {
@@ -845,6 +898,8 @@ int main() {
             pixels[(IMAGE_HEIGHT-1-y)*IMAGE_WIDTH+x] = generatePixel(test,P);
         }
     }
+
+    collisionCorrection(pixels, IMAGE_WIDTH, IMAGE_HEIGHT);
 
     // test.draw(0xFFFFFFFF, 3); // White color, thickness = 3
 
