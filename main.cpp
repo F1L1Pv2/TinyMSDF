@@ -28,80 +28,8 @@ double cross(const vec2& a, const vec2& b){
     return a.x*b.y - a.y*b.x;
 }
 
-uint32_t blendColors(uint32_t color1, uint32_t color2, float blendFactor) {
-    if (blendFactor < 0.0f) blendFactor = 0.0f;
-    if (blendFactor > 1.0f) blendFactor = 1.0f;
-
-    uint8_t r1 = (color1 >> 24) & 0xFF;
-    uint8_t g1 = (color1 >> 16) & 0xFF;
-    uint8_t b1 = (color1 >> 8) & 0xFF;
-    uint8_t a1 = color1 & 0xFF;
-
-    uint8_t r2 = (color2 >> 24) & 0xFF;
-    uint8_t g2 = (color2 >> 16) & 0xFF;
-    uint8_t b2 = (color2 >> 8) & 0xFF;
-    uint8_t a2 = color2 & 0xFF;
-
-    uint8_t r = static_cast<uint8_t>(r1 * (1.0f - blendFactor) + r2 * blendFactor);
-    uint8_t g = static_cast<uint8_t>(g1 * (1.0f - blendFactor) + g2 * blendFactor);
-    uint8_t b = static_cast<uint8_t>(b1 * (1.0f - blendFactor) + b2 * blendFactor);
-    uint8_t a = static_cast<uint8_t>(a1 * (1.0f - blendFactor) + a2 * blendFactor);
-
-    uint32_t blendedColor = (r << 24) | (g << 16) | (b << 8) | a;
-
-    return blendedColor;
-}
-
 uint8_t extractChannel(uint32_t color, int shift) {
     return (color >> shift) & 0xFF;
-}
-
-uint32_t changeAlpha(uint32_t color, float alpha){
-    return (color & 0x00FFFFFF) | (((uint32_t)(alpha*255) << 8*3));
-}
-
-uint32_t mixColors(uint32_t color1, uint32_t color2) {
-    uint8_t alpha1 = extractChannel(color1, 24);
-    uint8_t red1   = extractChannel(color1, 16);
-    uint8_t green1 = extractChannel(color1, 8);
-    uint8_t blue1  = extractChannel(color1, 0);
-
-    uint8_t alpha2 = extractChannel(color2, 24);
-    uint8_t red2   = extractChannel(color2, 16);
-    uint8_t green2 = extractChannel(color2, 8);
-    uint8_t blue2  = extractChannel(color2, 0);
-
-    float alpha1Normalized = alpha1 / 255.0f;
-    float alpha2Normalized = alpha2 / 255.0f;
-
-    float resultAlphaNormalized = alpha1Normalized + alpha2Normalized * (1.0f - alpha1Normalized);
-    uint8_t resultAlpha = static_cast<uint8_t>(resultAlphaNormalized * 255);
-
-    uint8_t resultRed = static_cast<uint8_t>(
-        (red1 * alpha1Normalized + red2 * alpha2Normalized * (1.0f - alpha1Normalized)) / resultAlphaNormalized);
-    uint8_t resultGreen = static_cast<uint8_t>(
-        (green1 * alpha1Normalized + green2 * alpha2Normalized * (1.0f - alpha1Normalized)) / resultAlphaNormalized);
-    uint8_t resultBlue = static_cast<uint8_t>(
-        (blue1 * alpha1Normalized + blue2 * alpha2Normalized * (1.0f - alpha1Normalized)) / resultAlphaNormalized);
-
-    uint32_t resultColor = (resultAlpha << 24) | (resultRed << 16) | (resultGreen << 8) | resultBlue;
-    return resultColor;
-}
-
-void setPixel(int x, int y, uint32_t color) {
-    if (x >= 0 && x < IMAGE_WIDTH && y >= 0 && y < IMAGE_HEIGHT) {
-        pixels[(IMAGE_HEIGHT - y) * IMAGE_WIDTH + x] = color;
-    }
-}
-
-void drawCircle(int xc, int yc, int radius, uint32_t color) {
-    for (int x = -radius; x <= radius; x++) {
-        for (int y = -radius; y <= radius; y++) {
-            if (x * x + y * y <= radius * radius) {
-                setPixel(xc + x, yc + y, color);
-            }
-        }
-    }
 }
 
 struct EdgeLine {
@@ -190,25 +118,6 @@ struct EdgeLine {
         double side = (point - projection).dot(perp);
 
         return side > 0 ? -(point - projection).mag() : (point - projection).mag();
-    }
-
-    void draw(uint32_t color, int thickness) {
-        int x0 = static_cast<int>(start.x * IMAGE_WIDTH);
-        int y0 = static_cast<int>(start.y * IMAGE_HEIGHT);
-        int x1 = static_cast<int>(end.x * IMAGE_WIDTH);
-        int y1 = static_cast<int>(end.y * IMAGE_HEIGHT);
-
-        int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-        int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-        int err = dx + dy, e2;
-
-        while (true) {
-            drawCircle(x0, y0, thickness, color);
-            if (x0 == x1 && y0 == y1) break;
-            e2 = 2 * err;
-            if (e2 >= dy) { err += dy; x0 += sx; }
-            if (e2 <= dx) { err += dx; y0 += sy; }
-        }
     }
 };
 
@@ -320,18 +229,6 @@ struct EdgeBezier {
         double sign = (p - closestPoint).dot(normal) >= 0 ? 1.0 : -1.0;
         return sign * minDistance * -1.0f;
     }
-
-    // The draw method remains unchanged.
-    void draw(uint32_t color, int thickness) {
-        vec2 prev = start;
-        for (int i = 1; i <= 100; i++) {
-            double t = i / 100.0;
-            vec2 current = point(t);
-            EdgeLine line = { prev, current };
-            line.draw(color, thickness);
-            prev = current;
-        }
-    }
 };
 
 struct EdgeType {
@@ -390,16 +287,6 @@ struct Edge {
         }
     }
 
-    void draw(uint32_t color, int thickness) {
-        switch (type) {
-        case EDGETYPELINE: as.line.draw(color, thickness); break;
-        case EDGETYPEBEZIER: as.bezier.draw(color, thickness); break;
-        default:
-            printf("Draw: Unknown type\n");
-            exit(1);
-        }
-    }
-
     float distanceTo(const vec2& p) const{
         switch (type) {
         case EDGETYPELINE: return as.line.distanceTo(p); break;
@@ -436,12 +323,6 @@ uint32_t Edge::global_id = 0;
 struct Contour {
     vector<Edge> edges;
     bool isClockwise;
-
-    void draw(uint32_t color, int thickness) {
-        for (auto& edge : edges) {
-            edge.draw(color, thickness);
-        }
-    }
 };
 
 bool isCornerSharp(const Edge* a,const Edge* b, double epsilon=PI/10){
@@ -455,12 +336,6 @@ bool isCornerSharp(const Edge* a,const Edge* b, double epsilon=PI/10){
 
 struct Shape {
     vector<Contour> contours;
-
-    void draw(uint32_t color, int thickness) {
-        for (auto& contour : contours) {
-            contour.draw(color, thickness);
-        }
-    }
 
     Edge* closestEdge(const vec2& P, uint32_t channel) {
         float dMin = std::numeric_limits<float>::infinity();
@@ -519,36 +394,6 @@ uint32_t rgb(float r, float g, float b, float a){
     return (((uint32_t)(a*255)) << 8*3) | (((uint32_t)(b*255)) << 8*2) | (((uint32_t)(g*255)) << 8*1) | (((uint32_t)(r*255)) << 8*0);
 }
 
-// uint32_t generatePixel(Shape& shape, const vec2& P){
-//     Edge* e = shape.closestEdge(P, 0xFFFFFFFF);
-//     float distance = e->signedDistanceTo(P);
-
-//     //distance color
-//     distance += 0.5;
-//     return blendColors(e->color,0xFF000000,distance);
-// }
-
-// float distanceColor(float distance){
-//     // return (distance+1.0)/2 > 0.5 ? 1.0 : 0.0;
-//     return (distance+1.0)/2;
-// }
-
-// uint32_t generatePixel(Shape& shape, const vec2& P) {
-//     Edge* eR = shape.closestEdge(P, 0x000000FF);
-//     Edge* eG = shape.closestEdge(P, 0x0000FF00);
-//     Edge* eB = shape.closestEdge(P, 0x00FF0000);
-
-//     if (!eR || !eG || !eB) {
-//         return 0xFF000000; // Black if no edge is found
-//     }
-
-//     float dR = distanceColor(eR->signedDistanceTo(P));
-//     float dG = distanceColor(eG->signedDistanceTo(P));
-//     float dB = distanceColor(eB->signedDistanceTo(P));
-
-//     return rgb(dR, dG, dB, 1.0f);
-// }
-
 float smoothStep(float edge0, float edge1, float x) {
     x = std::clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
     return x * x * (3 - 2 * x);
@@ -556,8 +401,6 @@ float smoothStep(float edge0, float edge1, float x) {
 
 float smoothDistance(float distance) {
     return smoothStep(-SMOOTH_VAL, SMOOTH_VAL, distance);
-    // return smoothStep(-1.0f, 1.0f, distance) > 0.5 ? 1.0f : 0.0f;
-    // return (distance+1)/2;
 }
 
 uint32_t generatePixel(Shape& shape, const vec2& P) {
@@ -566,7 +409,7 @@ uint32_t generatePixel(Shape& shape, const vec2& P) {
     Edge* eB = shape.closestEdge(P, 0x00FF0000);
 
     if (!eR || !eG || !eB) {
-        return 0xFF000000; // Black if no edge is found
+        return 0xFF000000;
     }
 
     float dR = smoothDistance(eR->signedDistanceTo(P));
@@ -584,7 +427,7 @@ bool isContourClockwise(const Contour& contour) {
         vec2 p2 = edge.point(1.0);
         area += (p2.x - p1.x) * (p2.y + p1.y);
     }
-    return area > 0.0; // If area is positive, the contour is clockwise
+    return area > 0.0;
 }
 
 float median(float a, float b, float c) {
