@@ -22,27 +22,45 @@ using namespace std;
 #include "filesWrap.h"
 
 int main(){
-
+    // Load the font file
     auto data = filesWrap::readFile("Courier New.ttf");
 
-
     stbtt_fontinfo font = {};
-    if(!stbtt_InitFont(&font,data->data(),0)){
+    if(!stbtt_InitFont(&font, data->data(), 0)){
         printf("failed\n");
+        return 1;
     }
 
-    int glyphIndex = stbtt_FindGlyphIndex(&font, 'F'); // Get glyph index for a character
+    // Get font metrics
+    int ascent, descent, lineGap;
+    stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
+
+    int x0, y0, x1, y1;
+    stbtt_GetFontBoundingBox(&font, &x0, &y0, &x1, &y1);
+
+    // Calculate the bounding box dimensions.
+    float fontWidth = (float)(x1 - x0);
+    float fontHeight = (float)(y1 - y0);
+
+    // Compute a uniform scale factor so that the largest dimension maps to 1.0.
+    float scale = 1.0f / max(fontWidth, fontHeight);
+
+    // Compute offsets to center the glyph in the [0,1] square.
+    float offsetX = 0.0f, offsetY = 0.0f;
+    if(fontWidth < fontHeight) {
+        offsetX = (1.0f - fontWidth * scale) / 2.0f;
+    } else if(fontHeight < fontWidth) {
+        offsetY = (1.0f - fontHeight * scale) / 2.0f;
+    }
+
+    // Get glyph shape for character 'F'
+    int glyphIndex = stbtt_FindGlyphIndex(&font, 'a');
     stbtt_vertex* vertices;
     int numVertices = stbtt_GetGlyphShape(&font, glyphIndex, &vertices);
 
     bool first = true;
-
     Shape shape = {};
-
     Contour contour = {};
-
-    Edge edge = {};
-
     vec2 cursor = {};
 
     for (int i = 0; i < numVertices; i++) {
@@ -52,63 +70,54 @@ int main(){
                 if(!first){
                     shape.contours.push_back(contour);
                     contour = {};
-                }else{
+                } else {
                     first = false;
                 }
-
-                cursor = {(float)v.x, (float)v.y};
-                // // Start of a new contour
-                printf("Move to (%d, %d)\n", v.x, v.y);
+                // Apply uniform scaling and offset to the move-to point.
+                cursor = { (float)(v.x - x0) * scale + offsetX, (float)(v.y - y0) * scale + offsetY };
+                printf("Move to (%f, %f)\n", cursor.x, cursor.y);
                 break;
             }
-
             case STBTT_vline:{
-                // Straight line to (v.x, v.y)
-                printf("Line to (%d, %d)\n", v.x, v.y);
-
-
-                vec2 newP = {(float)v.x,(float)v.y};
-                contour.edges.push_back(Edge(EdgeLine{cursor,newP}));
+                vec2 newP = { (float)(v.x - x0) * scale + offsetX, (float)(v.y - y0) * scale + offsetY };
+                printf("Line to (%f, %f)\n", newP.x, newP.y);
+                contour.edges.push_back(Edge(EdgeLine{cursor, newP}));
                 cursor = newP;
-
                 break;
             }
             case STBTT_vcurve:{
-                // Quadratic Bézier curve with control point (v.cx, v.cy) and endpoint (v.x, v.y)
-                printf("Quadratic Bezier to (%d, %d) with control (%d, %d)\n", v.x, v.y, v.cx, v.cy);
-
-                vec2 newP = {(float)v.x,(float)v.y};
-                contour.edges.push_back(Edge(EdgeBezier{cursor,newP, {(float)v.cx,(float)v.cy}}));
+                vec2 newP = { (float)(v.x - x0) * scale + offsetX, (float)(v.y - y0) * scale + offsetY };
+                vec2 control = { (float)(v.cx - x0) * scale + offsetX, (float)(v.cy - y0) * scale + offsetY };
+                printf("Quadratic Bezier to (%f, %f) with control (%f, %f)\n", newP.x, newP.y, control.x, control.y);
+                contour.edges.push_back(Edge(EdgeBezier{cursor, newP, control}));
                 cursor = newP;
-
                 break;
             }
             case STBTT_vcubic:{
-                // Cubic Bézier curve with control points (v.cx, v.cy), (v.cx1, v.cy1), and endpoint (v.x, v.y)
-                printf("Cubic Bezier to (%d, %d) with controls (%d, %d) and (%d, %d)\n", v.x, v.y, v.cx, v.cy, v.cx1, v.cy1);
-
-                vec2 newP = {(float)v.x,(float)v.y};
-                contour.edges.push_back(Edge(EdgeCubicBezier{cursor,newP, {(float)v.cx,(float)v.cy}, {(float)v.cx1, (float)v.cy1}}));
+                vec2 newP = { (float)(v.x - x0) * scale + offsetX, (float)(v.y - y0) * scale + offsetY };
+                vec2 control1 = { (float)(v.cx - x0) * scale + offsetX, (float)(v.cy - y0) * scale + offsetY };
+                vec2 control2 = { (float)(v.cx1 - x0) * scale + offsetX, (float)(v.cy1 - y0) * scale + offsetY };
+                printf("Cubic Bezier to (%f, %f) with controls (%f, %f) and (%f, %f)\n", newP.x, newP.y, control1.x, control1.y, control2.x, control2.y);
+                contour.edges.push_back(Edge(EdgeCubicBezier{cursor, newP, control1, control2}));
                 cursor = newP;
-
                 break;
             }
         }
     }
-
+    // Push the last contour.
     shape.contours.push_back(contour);
-    uint32_t* outPixels = genMsdf(shape,{
+
+    // Generate MSDF with normalized coordinates.
+    uint32_t* outPixels = genMsdf(shape, {
         .width = 64,
         .height = 64,
-        .scale = 1300,
         .smooth_val = 0.15f
     });
 
     if(!stbi_write_png("out.png", 64, 64, 4, outPixels, 64 * 4)){
-        printf("Could not save");
+        printf("Could not save\n");
     }
 
     free(outPixels);
-
     return 0;
 }
