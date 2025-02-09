@@ -208,19 +208,118 @@ struct EdgeBezier {
     }
 };
 
-struct EdgeType {
-    union {
-        EdgeLine line;
-        EdgeBezier bezier;
-    };
+struct EdgeCubicBezier {
+    vec2 start;
+    vec2 end;
+    vec2 control1;
+    vec2 control2;
 
-    EdgeType() {}
+    // A cubic Bézier using the standard formulation:
+    // B(t) = (1-t)^3*start + 3t(1-t)^2*control1 + 3t^2(1-t)*control2 + t^3*end
+    vec2 point(double t) const {
+        double omt = 1.0 - t;
+        double omt2 = omt * omt;
+        double t2 = t * t;
+        return start * (omt2 * omt) + control1 * (3 * t * omt2) + control2 * (3 * t2 * omt) + end * (t2 * t);
+    }
+
+    // Its derivative:
+    // B'(t) = 3(1-t)^2(control1 - start) + 6t(1-t)(control2 - control1) + 3t^2(end - control2)
+    vec2 derivative(double t) const {
+        double omt = 1.0 - t;
+        double omt2 = omt * omt;
+        double t2 = t * t;
+        return (control1 - start) * (3 * omt2) + (control2 - control1) * (6 * t * omt) + (end - control2) * (3 * t2);
+    }
+
+    // Compute the unsigned distance from p to the curve by dense sampling.
+    double distanceTo(const vec2& p) const {
+        double minDistance = std::numeric_limits<double>::max();
+        const int subdivisions = 100;
+        for (int i = 0; i <= subdivisions; ++i) {
+            double t = i / (double)subdivisions;
+            vec2 curvePoint = point(t);
+            double d = (p - curvePoint).mag();
+            if (d < minDistance)
+                minDistance = d;
+        }
+        return minDistance;
+    }
+
+    // Compute a measure of the signed orthogonality.
+    // We sample the curve densely, pick the closest point and then use its tangent.
+    double orthogonality(const vec2& p) const {
+        double minDistance = std::numeric_limits<double>::max();
+        double minT = 0.0;
+        const int subdivisions = 100; // dense enough for a cubic curve
+        for (int i = 0; i <= subdivisions; ++i) {
+            double t = i / (double)subdivisions;
+            vec2 curvePoint = point(t);
+            double d = (p - curvePoint).mag();
+            if (d < minDistance) {
+                minDistance = d;
+                minT = t;
+            }
+        }
+        vec2 closestPoint = point(minT);
+        vec2 tangent = derivative(minT);
+        double tangentMag = tangent.mag();
+        if (tangentMag < 1e-10)
+            return 0.0;
+        vec2 tangentNorm = tangent / tangentMag;
+        vec2 dir = p - closestPoint;
+        double dirMag = dir.mag();
+        if (dirMag < 1e-10)
+            return 0.0;
+        vec2 dirNorm = dir / dirMag;
+        // The signed cross product between the tangent and the direction
+        return cross(tangentNorm, dirNorm);
+    }
+
+    // Compute a signed distance:
+    // We sample many points, pick the closest one, then determine the sign using the normal.
+    double signedDistanceTo(const vec2& p) const {
+        double minDistance = std::numeric_limits<double>::max();
+        double minT = 0.0;
+        const int subdivisions = 200; // use more subdivisions for signed distance accuracy
+        for (int i = 0; i <= subdivisions; ++i) {
+            double t = i / (double)subdivisions;
+            vec2 curvePoint = point(t);
+            double d = (p - curvePoint).mag();
+            if (d < minDistance) {
+                minDistance = d;
+                minT = t;
+            }
+        }
+        vec2 closestPoint = point(minT);
+        vec2 tangent = derivative(minT);
+        double tangentMag = tangent.mag();
+        if (tangentMag < 1e-10)
+            return minDistance; // fallback if tangent is degenerate
+        vec2 tangentNorm = tangent / tangentMag;
+        // Compute a normal (by rotating the tangent 90° counter-clockwise)
+        vec2 normal = { -tangentNorm.y, tangentNorm.x };
+        // Determine sign: positive if the point lies along the normal direction, negative otherwise.
+        double sign = (p - closestPoint).dot(normal) >= 0 ? 1.0 : -1.0;
+        return sign * minDistance * -1.0f;
+    }
 };
 
 enum EDGETYPE {
     EDGETYPENONE,
     EDGETYPELINE,
-    EDGETYPEBEZIER
+    EDGETYPEBEZIER,
+    EDGETYPECUBICBEZIER // Add this new type
+};
+
+struct EdgeType {
+    union {
+        EdgeLine line;
+        EdgeBezier bezier;
+        EdgeCubicBezier cubicBezier; // Add this new type
+    };
+
+    EdgeType() {}
 };
 
 struct Edge {
@@ -229,6 +328,10 @@ struct Edge {
     uint32_t color = 0xFFFFFFFF;
     uint32_t id = 0;
     static uint32_t global_id;
+
+    Edge(){
+        type = EDGETYPENONE;
+    }
 
     Edge(EdgeLine item) {
         type = EDGETYPELINE;
@@ -244,10 +347,18 @@ struct Edge {
         Edge::global_id++;
     }
 
+    Edge(EdgeCubicBezier item) { // Add this constructor
+        type = EDGETYPECUBICBEZIER;
+        as.cubicBezier = item;
+        id = Edge::global_id;
+        Edge::global_id++;
+    }
+
     vec2 point(double t) const{
         switch (type) {
         case EDGETYPELINE: return as.line.point(t);
         case EDGETYPEBEZIER: return as.bezier.point(t);
+        case EDGETYPECUBICBEZIER: return as.cubicBezier.point(t); // Add this case
         default:
             printf("Point: Unknown type\n");
             exit(1);
@@ -258,6 +369,7 @@ struct Edge {
         switch (type) {
         case EDGETYPELINE: return as.line.derivative(t);
         case EDGETYPEBEZIER: return as.bezier.derivative(t);
+        case EDGETYPECUBICBEZIER: return as.cubicBezier.derivative(t); // Add this case
         default:
             printf("Derivative: Unknown type\n");
             exit(1);
@@ -268,6 +380,7 @@ struct Edge {
         switch (type) {
         case EDGETYPELINE: return as.line.distanceTo(p); break;
         case EDGETYPEBEZIER: return as.bezier.distanceTo(p); break;
+        case EDGETYPECUBICBEZIER: return as.cubicBezier.distanceTo(p); break; // Add this case
         default:
             printf("DistanceTo: Unknown type\n");
             exit(1);
@@ -278,6 +391,7 @@ struct Edge {
         switch (type) {
         case EDGETYPELINE: return as.line.orthogonality(p); break;
         case EDGETYPEBEZIER: return as.bezier.orthogonality(p); break;
+        case EDGETYPECUBICBEZIER: return as.cubicBezier.orthogonality(p); break; // Add this case
         default:
             printf("DistanceTo: Unknown type\n");
             exit(1);
@@ -288,6 +402,7 @@ struct Edge {
         switch (type) {
         case EDGETYPELINE: return as.line.signedDistanceTo(p); break;
         case EDGETYPEBEZIER: return as.bezier.signedDistanceTo(p); break;
+        case EDGETYPECUBICBEZIER: return as.cubicBezier.signedDistanceTo(p); break; // Add this case
         default:
             printf("SignedDistanceTo: Unknown type\n");
             exit(1);
@@ -400,10 +515,11 @@ struct GenParams{
     size_t height;
     size_t innerSize = 256;
     float smooth_val = 0.15f;
+    float scale = 1.0f;
 };
 
 float smoothDistance(GenParams* params, float distance) {
-    return smoothStep(-params->smooth_val, params->smooth_val, distance);
+    return smoothStep(-params->smooth_val*params->scale, params->smooth_val*params->scale, distance);
 }
 
 uint32_t generatePixel(GenParams* params, Shape& shape, const vec2& P) {
@@ -493,6 +609,7 @@ uint32_t* genMsdf(Shape& shape, GenParams params){
         int x = i % params.innerSize;
         int y = params.innerSize - i / params.innerSize;
         vec2 P = {((float)x+0.5f)/params.innerSize, ((float)y+0.5f)/params.innerSize};
+        P *= params.scale;
         pixels[i] = generatePixel(&params,shape,P);
     }
 

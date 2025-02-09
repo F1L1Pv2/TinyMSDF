@@ -10,5 +10,14 @@
             "cwd": "${workspaceRoot}",
             "console": "integratedTerminal"
         },
+        {
+            "name": "Atlas",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/fontAtlas.exe",
+            "args": [],
+            "cwd": "${workspaceRoot}",
+            "console": "integratedTerminal"
+        },
     ]
 }
